@@ -3,6 +3,8 @@
 import { cn } from "@/lib/utils"
 import type { CarouselItemData } from "@/data/carousel-items"
 
+type RoleType = "forge" | "compass" | "sentinel" | "catalyst" | "anchor" | "parasite" | "common"
+
 interface CarouselCardProps {
   item: CarouselItemData
   index: number
@@ -12,6 +14,53 @@ interface CarouselCardProps {
   height: number
   translateZ: number
   quantity: number
+  role?: RoleType
+}
+
+// Role color mappings
+const roleColors = {
+  forge: {
+    primary: "#FF6B35", // Orange
+    secondary: "#FF8C42",
+    accent: "#FFA559",
+    gradient: "from-[#FF6B35] to-[#FF8C42]"
+  },
+  compass: {
+    primary: "#4ECDC4", // Teal
+    secondary: "#44A3AA",
+    accent: "#95E1D3",
+    gradient: "from-[#4ECDC4] to-[#44A3AA]"
+  },
+  sentinel: {
+    primary: "#95E1D3", // Mint
+    secondary: "#78C4B8",
+    accent: "#B8F3E0",
+    gradient: "from-[#95E1D3] to-[#78C4B8]"
+  },
+  catalyst: {
+    primary: "#F38181", // Coral
+    secondary: "#E85A5A",
+    accent: "#F8B195",
+    gradient: "from-[#F38181] to-[#E85A5A]"
+  },
+  anchor: {
+    primary: "#AA96DA", // Purple
+    secondary: "#8B7AB8",
+    accent: "#C8B6DB",
+    gradient: "from-[#AA96DA] to-[#8B7AB8]"
+  },
+  parasite: {
+    primary: "#FCBAD3", // Pink
+    secondary: "#F8A5C2",
+    accent: "#FFD6E0",
+    gradient: "from-[#FCBAD3] to-[#F8A5C2]"
+  },
+  common: {
+    primary: "#A8DADC", // Light Blue
+    secondary: "#457B9D",
+    accent: "#F1FAEE",
+    gradient: "from-[#A8DADC] to-[#457B9D]"
+  }
 }
 
 export function CarouselCard({
@@ -23,8 +72,10 @@ export function CarouselCard({
   height,
   translateZ,
   quantity,
+  role = "common"
 }: CarouselCardProps) {
   const canFlip = isSettling && isInFront
+  const colors = roleColors[role]
 
   return (
     <div
@@ -47,13 +98,13 @@ export function CarouselCard({
         style={{ transformStyle: "preserve-3d" }}
       >
         {/* Front face (default visible state - shows image) */}
-        <CardFrontFace item={item} index={index} />
+        <CardFrontFace item={item} index={index} colors={colors} />
 
         {/* Back face - simple animated gradient (visible when rotating/in back) */}
-        <CardBackSimple canFlip={canFlip} />
+        <CardBackSimple canFlip={canFlip} colors={colors} />
 
         {/* Detailed back face - only for front cards on hover */}
-        <CardBackDetailed item={item} canFlip={canFlip} />
+        <CardBackDetailed item={item} canFlip={canFlip} colors={colors} />
       </div>
     </div>
   )
@@ -63,14 +114,17 @@ export function CarouselCard({
 function CardFrontFace({
   item,
   index,
+  colors
 }: {
   item: CarouselItemData
   index: number
+  colors: typeof roleColors.forge
 }) {
   return (
     <div
-      className="card-front absolute h-full w-full overflow-hidden rounded-md bg-[#151515]"
+      className="card-front absolute h-full w-full overflow-hidden rounded-md"
       style={{
+        backgroundColor: colors.primary,
         backfaceVisibility: "hidden",
         WebkitBackfaceVisibility: "hidden",
         transformStyle: "preserve-3d",
@@ -125,27 +179,28 @@ function CardFrontFace({
 }
 
 // Simple back face - animated gradient with floating circles
-function CardBackSimple({ canFlip }: { canFlip: boolean }) {
+function CardBackSimple({ canFlip, colors }: { canFlip: boolean; colors: typeof roleColors.forge }) {
   return (
     <div
       className={cn(
-        "card-back absolute flex h-full w-full items-center justify-center overflow-hidden rounded-md bg-[#151515]",
+        "card-back absolute flex h-full w-full items-center justify-center overflow-hidden rounded-md",
         canFlip && "group-hover:opacity-0"
       )}
       style={{
+        backgroundColor: colors.primary,
         backfaceVisibility: "hidden",
         transform: "rotateY(180deg)",
         transition: "opacity 0.3s ease",
       }}
     >
       {/* Animated gradient border */}
-      <div className="absolute h-[160%] w-40 animate-[border-spin_5s_linear_infinite] bg-gradient-to-r from-transparent via-[#ff9966] to-transparent" />
+      <div className={`absolute h-[160%] w-40 animate-[border-spin_5s_linear_infinite] bg-gradient-to-r ${colors.gradient}`} />
 
       {/* Simple animated gradient with circles */}
-      <div className="absolute flex h-[99%] w-[99%] flex-col items-center justify-center gap-6 rounded-md bg-[#151515]">
-        <div className="circle absolute left-2 top-4 h-[90px] w-[90px] animate-[floating_2.6s_linear_infinite] rounded-full bg-[#ffbb66] blur-[15px]" />
-        <div className="circle absolute left-[50px] top-0 h-[150px] w-[150px] animate-[floating_2.6s_linear_infinite_-800ms] rounded-full bg-[#ff8866] blur-[15px]" />
-        <div className="circle absolute left-[160px] top-[-80px] h-[30px] w-[30px] animate-[floating_2.6s_linear_infinite_-1800ms] rounded-full bg-[#ff2233] blur-[15px]" />
+      <div className="absolute flex h-[99%] w-[99%] flex-col items-center justify-center gap-6 rounded-md" style={{ backgroundColor: colors.primary }}>
+        <div className="circle absolute left-2 top-4 h-[90px] w-[90px] animate-[floating_2.6s_linear_infinite] rounded-full blur-[15px]" style={{ backgroundColor: colors.accent }} />
+        <div className="circle absolute left-[50px] top-0 h-[150px] w-[150px] animate-[floating_2.6s_linear_infinite_-800ms] rounded-full blur-[15px]" style={{ backgroundColor: colors.secondary }} />
+        <div className="circle absolute left-[160px] top-[-80px] h-[30px] w-[30px] animate-[floating_2.6s_linear_infinite_-1800ms] rounded-full blur-[15px]" style={{ backgroundColor: colors.primary }} />
       </div>
     </div>
   )
@@ -155,29 +210,32 @@ function CardBackSimple({ canFlip }: { canFlip: boolean }) {
 function CardBackDetailed({
   item,
   canFlip,
+  colors
 }: {
   item: CarouselItemData
   canFlip: boolean
+  colors: typeof roleColors.forge
 }) {
   return (
     <div
       className={cn(
-        "card-back-detail absolute flex h-full w-full items-center justify-center overflow-hidden rounded-md bg-[#151515] opacity-0",
+        "card-back-detail absolute flex h-full w-full items-center justify-center overflow-hidden rounded-md opacity-0",
         canFlip && "group-hover:opacity-100"
       )}
       style={{
+        backgroundColor: colors.primary,
         backfaceVisibility: "hidden",
         transform: "rotateY(180deg)",
         transition: "opacity 0.3s ease",
       }}
     >
       {/* Animated gradient border */}
-      <div className="absolute h-[160%] w-40 animate-[border-spin_5s_linear_infinite] bg-gradient-to-r from-transparent via-[#ff9966] to-transparent" />
+      <div className={`absolute h-[160%] w-40 animate-[border-spin_5s_linear_infinite] bg-gradient-to-r ${colors.gradient}`} />
 
-      <div className="absolute flex h-[99%] w-[99%] flex-col justify-between overflow-hidden rounded-md bg-[#151515] p-4">
+      <div className="absolute flex h-[99%] w-[99%] flex-col justify-between overflow-hidden rounded-md p-4" style={{ backgroundColor: colors.primary }}>
         {/* Floating circles (background) */}
-        <div className="circle absolute left-2 top-4 h-[90px] w-[90px] animate-[floating_2.6s_linear_infinite] rounded-full bg-[#ffbb66] opacity-30 blur-[15px]" />
-        <div className="circle absolute right-0 top-0 h-[150px] w-[150px] animate-[floating_2.6s_linear_infinite_-800ms] rounded-full bg-[#ff8866] opacity-30 blur-[15px]" />
+        <div className="circle absolute left-2 top-4 h-[90px] w-[90px] animate-[floating_2.6s_linear_infinite] rounded-full opacity-30 blur-[15px]" style={{ backgroundColor: colors.accent }} />
+        <div className="circle absolute right-0 top-0 h-[150px] w-[150px] animate-[floating_2.6s_linear_infinite_-800ms] rounded-full opacity-30 blur-[15px]" style={{ backgroundColor: colors.secondary }} />
 
         {/* Content */}
         <div className="relative z-10 flex flex-col gap-2">
@@ -194,7 +252,7 @@ function CardBackDetailed({
             <div className="mt-1 flex gap-3">
               {item.backContent.stats.map((stat, i) => (
                 <div key={i} className="flex flex-col">
-                  <span className="text-xs font-bold text-[#ff9966]">
+                  <span className="text-xs font-bold" style={{ color: colors.accent }}>
                     {stat.value}
                   </span>
                   <span className="text-[8px] text-white/50">{stat.label}</span>
@@ -220,7 +278,7 @@ function CardBackDetailed({
 
         {/* CTA */}
         <div className="relative z-10">
-          <button className="w-full rounded-md bg-gradient-to-r from-[#ff9966] to-[#ff8866] py-1.5 text-[10px] font-medium text-white transition-opacity hover:opacity-90">
+          <button className={`w-full rounded-md bg-gradient-to-r ${colors.gradient} py-1.5 text-[10px] font-medium text-white transition-opacity hover:opacity-90`}>
             {item.backContent?.ctaText || "Learn More"}
           </button>
         </div>

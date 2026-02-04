@@ -1,13 +1,5 @@
-import { RotatingCarousel } from "@/components/rotating-carousel"
-import { carouselItems } from "@/data/carousel-items"
+import { redirect } from 'next/navigation'
 
 export default function Page() {
-  return (
-    <RotatingCarousel
-      items={carouselItems}
-      width={190}
-      height={254}
-      sensitivity={0.3}
-    />
-  )
+  redirect('/landing')
 }
