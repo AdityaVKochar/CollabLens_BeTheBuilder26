@@ -12,6 +12,7 @@ export interface Figure {
 
 export interface TimelineCommit {
   username: string;
+  authorName?: string;
   message: string;
   date: string;
   commitUrl: string;

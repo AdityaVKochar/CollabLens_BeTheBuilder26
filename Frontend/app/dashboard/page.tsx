@@ -56,8 +56,10 @@ function transformFiguresToCarouselItems(
 
   roleOrder.forEach(({ key, role }) => {
     const figure = roles[key] as Figure | undefined
-    if (figure) {
+    if (figure && role) {
       const roleInfo = roleDescriptions[role]
+      if (!roleInfo) return // Skip if role description not found
+      
       items.push({
         image: `https://github.com/${figure.username}.png`,
         title: figure.username,
@@ -125,10 +127,33 @@ export default function DashboardPage() {
 
   const carouselData = useMemo(() => {
     if (figures.length > 0 && Object.keys(roles).length > 0) {
+      // Store timeline and figures data in localStorage for contributor pages
+      if (timeline.length > 0) {
+        localStorage.setItem("allCommits", JSON.stringify(timeline))
+        
+        // Store individual stats for each contributor
+        figures.forEach(figure => {
+          const role = Object.entries(roles).find(([key, value]) => {
+            if (Array.isArray(value)) {
+              return value.some(f => f.username === figure.username)
+            }
+            return value?.username === figure.username
+          })
+          
+          localStorage.setItem(`stats_${figure.username}`, JSON.stringify({
+            totalCommits: figure.totalCommits,
+            additions: figure.additions,
+            deletions: figure.deletions,
+            activeWeeks: figure.activeWeeks,
+            role: role ? role[0].charAt(0).toUpperCase() + role[0].slice(1) : "Contributor"
+          }))
+        })
+      }
+      
       return transformFiguresToCarouselItems(roles, figures)
     }
     return carouselItems // Default placeholder data
-  }, [figures, roles])
+  }, [figures, roles, timeline])
 
   // Show input form if no data has been fetched yet
   if (!hasSearched) {

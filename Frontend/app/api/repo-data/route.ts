@@ -27,8 +27,10 @@ function getHeaders(): HeadersInit {
 
 async function fetchAllCommits(owner: string, repo: string) {
   let allCommits: any[] = [];
+  let page = 1;
+  let hasMore = true;
 
-  for (let page = 1; page <= 3; page++) {
+  while (hasMore) {
     const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/commits?per_page=100&page=${page}`,
       {
@@ -41,43 +43,94 @@ async function fetchAllCommits(owner: string, repo: string) {
     }
 
     const data = await response.json();
-    allCommits.push(...data);
+    
+    // Fetch detailed stats for each commit (including additions/deletions)
+    const detailedCommits = await Promise.all(
+      data.map(async (commit: any) => {
+        try {
+          const detailResponse = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/commits/${commit.sha}`,
+            { headers: getHeaders() }
+          );
+          
+          if (detailResponse.ok) {
+            const detail = await detailResponse.json();
+            return { ...commit, stats: detail.stats };
+          }
+        } catch (e) {
+          // If detail fetch fails, return commit without stats
+          console.warn(`Failed to fetch stats for commit ${commit.sha}`);
+        }
+        return commit;
+      })
+    );
+    
+    allCommits.push(...detailedCommits);
 
-    if (data.length < 100) break;
+    // Continue if we got a full page of results
+    if (data.length < 100) {
+      hasMore = false;
+    } else {
+      page++;
+    }
   }
 
   return allCommits;
 }
 
 /* ============================
-   FETCH CONTRIBUTOR STATS
+   DERIVE CONTRIBUTOR DATA FROM COMMITS
 ============================ */
 
-async function fetchContributorStats(owner: string, repo: string, retries = 3): Promise<any[]> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    const response = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/stats/contributors`,
-      {
-        headers: getHeaders(),
-      }
-    );
+function deriveContributorStats(commits: any[]) {
+  const contributorMap = new Map<string, {
+    username: string;
+    totalCommits: number;
+    additions: number;
+    deletions: number;
+    firstCommit: Date;
+    lastCommit: Date;
+    commitDates: Set<string>;
+  }>();
 
-    if (response.status === 200) {
-      const data = await response.json();
-      if (data) return data;
+  commits.forEach(commit => {
+    const username = commit.author?.login ?? "Unknown";
+    const date = new Date(commit.commit.author.date);
+    const additions = commit.stats?.additions ?? 0;
+    const deletions = commit.stats?.deletions ?? 0;
+
+    if (!contributorMap.has(username)) {
+      contributorMap.set(username, {
+        username,
+        totalCommits: 0,
+        additions: 0,
+        deletions: 0,
+        firstCommit: date,
+        lastCommit: date,
+        commitDates: new Set()
+      });
     }
 
-    if (response.status === 202) {
-      // GitHub still computing stats, wait and retry
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      continue;
-    }
+    const contributor = contributorMap.get(username)!;
+    contributor.totalCommits++;
+    contributor.additions += additions;
+    contributor.deletions += deletions;
+    
+    if (date < contributor.firstCommit) contributor.firstCommit = date;
+    if (date > contributor.lastCommit) contributor.lastCommit = date;
+    
+    // Track unique weeks for active weeks calculation
+    const weekKey = `${date.getFullYear()}-W${Math.floor(date.getTime() / (7 * 24 * 60 * 60 * 1000))}`;
+    contributor.commitDates.add(weekKey);
+  });
 
-    // Other errors
-    return [];
-  }
-
-  return [];
+  return Array.from(contributorMap.values()).map(contributor => ({
+    username: contributor.username,
+    totalCommits: contributor.totalCommits,
+    activeWeeks: contributor.commitDates.size,
+    additions: contributor.additions,
+    deletions: contributor.deletions
+  }));
 }
 
 /* ============================
@@ -124,7 +177,6 @@ export async function POST(req: Request) {
     /* ---------- FETCH DATA ---------- */
 
     const rawCommits = await fetchAllCommits(owner, repo);
-    const rawContributors = await fetchContributorStats(owner, repo);
 
     /* ---------- CLEAN TIMELINE ---------- */
 
@@ -136,15 +188,9 @@ export async function POST(req: Request) {
       commitUrl: commit.html_url
     }));
 
-    /* ---------- CLEAN FIGURES ---------- */
+    /* ---------- DERIVE FIGURES FROM COMMITS ---------- */
 
-    const figures = rawContributors.map((user: any) => ({
-      username: user.author.login,
-      totalCommits: user.total,
-      activeWeeks: user.weeks.filter((w: any) => w.c > 0).length,
-      additions: user.weeks.reduce((sum: number, w: any) => sum + w.a, 0),
-      deletions: user.weeks.reduce((sum: number, w: any) => sum + w.d, 0)
-    }));
+    const figures = deriveContributorStats(rawCommits);
 
     return NextResponse.json({
       repository: `${owner}/${repo}`,
